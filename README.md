@@ -4,13 +4,15 @@ A desktop application for managing **Dark Age of Camelot** quickbar key bindings
 
 Built specifically for the **Eden** freeshard but works with any DAoC client that uses the standard `Quickbar`/`QuickBinds` INI format.
 
+![DAoC Qbind Editor](docs/screenshots/main-view.png)
+
 ## Features
 
 - Visual editor showing all 3 quickbars × 10 banks × 10 slots, matching the in-game layout
 - Press a key combo to bind it — no manual typing of `/qbind 1 2 1` commands
 - Auto-detects your eden folder on first launch
 - Sidebar lists all your characters, click to switch
-- **Profile system**: save your full qbinds + macros setup as a named profile (e.g. "PvE Reaver", "BG Crafter"), apply to any character with one click
+- **Profile system**: save your full qbinds + macros setup as a named profile (e.g. "Main", "Crafter"), apply to any character with one click
 - **Multi-character apply**: push a profile to multiple characters in one operation
 - **Auto-backup**: creates `.bak` files before any write, so you can always roll back
 - **DAoC-running detection**: warns you if the game is open, since the client overwrites the INI on logout
@@ -43,6 +45,9 @@ Output goes into `dist/`. Use `npm start` to run in dev mode without building.
 1. **Launch the app.** It will auto-detect your eden folder (`%AppData%\Electronic Arts\Dark Age of Camelot\eden`). If your install is non-standard, use **File → Change eden folder…** to point it manually.
 2. **Pick a character** from the sidebar.
 3. **Click any slot** to bind it. Press the key combo you want (with `Shift`, `Ctrl`, or `Alt` if desired) and click Apply.
+
+   ![Binding a key](docs/screenshots/bind-modal.png)
+
 4. **Right-click any bound slot** to clear it instantly.
 5. **Click Save** to write changes to disk. A `.bak` is created automatically the first time you save each character per session.
 
@@ -53,6 +58,9 @@ Output goes into `dist/`. Use `npm start` to run in dev mode without building.
 - **Save as profile…** — name and store your current qbinds + macros as a JSON file in the eden folder.
 - **Click any profile in the sidebar** — opens a dialog to apply it to the current character. Choose **Merge** (add to existing) or **Replace all** (clean slate) for both qbinds and macros separately.
 - **Apply to characters…** — pick a profile, check off the characters to update, click Apply. Each character gets a fresh `.bak`.
+
+  ![Multi-character apply](docs/screenshots/multi-apply.png)
+
 - **Import / Export** — profiles are plain JSON files. Share them with guildmates or back them up to cloud storage.
 
 ### Bar layout
