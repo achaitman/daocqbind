@@ -6,6 +6,13 @@ Built specifically for the **Eden** freeshard but works with any DAoC client tha
 
 ![DAoC Qbind Editor](docs/screenshots/main-view.png)
 
+## Quick install
+
+1. Download `DAoC-Qbind-Editor-X.Y.Z-portable.exe` from the [latest release](../../releases/latest)
+2. Double-click it. (Click "More info" → "Run anyway" if Windows warns you about an unrecognized app — this is normal for unsigned indie software.)
+3. The app auto-finds your eden folder. Pick a character and start editing.
+
+Always close DAoC before saving — the game overwrites the INI when you log out.
 ## Features
 
 - Visual editor showing all 3 quickbars × 10 banks × 10 slots, matching the in-game layout
