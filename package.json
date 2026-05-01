@@ -1,0 +1,63 @@
+{
+  "name": "daoc-qbind-editor",
+  "version": "1.0.0",
+  "description": "Visual editor for Dark Age of Camelot quickbar key bindings (qbinds), with profile management and multi-character apply.",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --enable-logging",
+    "build": "electron-builder --win --x64",
+    "build:portable": "electron-builder --win portable --x64",
+    "dist": "electron-builder --win --x64 --publish never"
+  },
+  "keywords": [
+    "daoc",
+    "dark-age-of-camelot",
+    "eden",
+    "qbind",
+    "keybinds",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.daoc.qbind-editor",
+    "productName": "DAoC Qbind Editor",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "renderer/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DAoC Qbind Editor"
+    },
+    "portable": {
+      "artifactName": "DAoC-Qbind-Editor-${version}-portable.exe"
+    }
+  }
+}

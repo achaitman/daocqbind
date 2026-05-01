@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
+<title>DAoC Qbind Editor</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="daoc-warning" class="daoc-warning" style="display:none">
+  <strong>DAoC is currently running.</strong>
+  Saving now will work, but the game will overwrite your changes when you log out. Close the game first for safety.
+</div>
+
+<div class="app">
+  <header>
+    <h1>DAoC Qbind Editor</h1>
+    <div class="toolbar">
+      <span id="filename" class="filename"></span>
+      <button id="expand-toggle" class="toggle" disabled>Expand all banks</button>
+      <button id="save-profile-btn" disabled>Save as profile…</button>
+      <button id="apply-multi-btn" disabled>Apply to characters…</button>
+      <button id="save-btn" class="primary" disabled>Save</button>
+      <button id="export-btn" disabled>Export INI…</button>
+      <button id="clear-btn" class="danger" disabled>Clear all binds</button>
+    </div>
+  </header>
+
+  <details class="help">
+    <summary>How to use</summary>
+    <div class="help-content">
+      <p><strong>Layout:</strong> Each bar shows one bank (10 slots) at a time, like in-game. Click the numbered chips above the row to switch banks. A small green dot under a bank number means it has bindings. Click <strong>Expand all banks</strong> for the full 10×10 grid view.</p>
+      <p style="margin-top: 10px;"><strong>Editing:</strong> Click any slot to bind. Press the key combo (with <kbd>Shift</kbd>, <kbd>Ctrl</kbd>, or <kbd>Alt</kbd>). Right-click a slot to clear it instantly.</p>
+      <p style="margin-top: 10px;"><strong>Profiles:</strong> Save your current binds + macros as a named profile (e.g. "PvE Reaver", "BG Crafter"). Click any profile in the sidebar to apply it to the current character. Click <strong>Apply to characters…</strong> to push a profile to multiple characters at once.</p>
+      <p style="margin-top: 10px;"><strong>Folder:</strong> The editor auto-finds your eden folder on first launch. Use <strong>File → Change eden folder…</strong> if you have a non-standard install or multiple freeshards.</p>
+      <p style="margin-top: 10px; color: var(--accent);"><strong>Tip:</strong> The yellow banner at the top warns you if DAoC is running. Always close the game before saving — the client overwrites the INI on logout.</p>
+    </div>
+  </details>
+
+  <div id="empty" class="empty-state" style="display:none">
+    <h2>Couldn't find your eden folder</h2>
+    <p>The default path is empty or doesn't exist.</p>
+    <p style="font-family: ui-monospace, monospace; font-size: 12px; margin-top: 8px;" id="default-path"></p>
+    <div class="actions">
+      <button id="pick-folder-btn-empty" class="primary">Pick folder manually</button>
+    </div>
+  </div>
+
+  <div id="layout" class="layout" style="display: none;">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <h2>Characters</h2>
+          <div class="sidebar-actions">
+            <button id="refresh-folder-btn" title="Reload folder (F5)">↻</button>
+            <button id="reveal-folder-btn" title="Open folder in Explorer">⤴</button>
+          </div>
+        </div>
+        <div id="folder-name" class="folder-name"></div>
+        <ul id="char-list" class="char-list"></ul>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <h2>Profiles</h2>
+          <div class="sidebar-actions">
+            <button id="import-profile-btn" title="Import a profile JSON file">Import</button>
+          </div>
+        </div>
+        <ul id="profile-list" class="profile-list"></ul>
+      </div>
+    </aside>
+    <main>
+      <div id="bars" class="bars"></div>
+    </main>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
