@@ -1,6 +1,6 @@
 {
   "name": "daoc-qbind-editor",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Visual editor for Dark Age of Camelot quickbar key bindings (qbinds), with profile management and multi-character apply.",
   "main": "electron/main.js",
   "scripts": {
