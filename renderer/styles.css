@@ -193,6 +193,24 @@ label.field-label {
   font-family: ui-monospace, monospace;
   word-break: break-all;
 }
+.char-search {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 100%;
+  margin-bottom: 8px;
+}
+.char-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.char-search::placeholder {
+  color: var(--text-muted);
+}
 .char-list, .profile-list {
   list-style: none;
   margin: 0;

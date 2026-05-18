@@ -31,7 +31,7 @@ const SCAN_CODE_TO_LABEL = {
   71: "Num7", 72: "Num8", 73: "Num9", 74: "Num-",
   75: "Num4", 76: "Num5", 77: "Num6", 78: "Num+",
   79: "Num1", 80: "Num2", 81: "Num3",
-  82: "Num0", 83: "Num.",
+  82: "Num0", 83: "Del",
   156: "NumEnter", 181: "Num/", 183: "PrtScr", 197: "Pause",
   199: "Home", 200: "Up", 201: "PgUp",
   203: "Left", 205: "Right",
@@ -190,6 +190,7 @@ const state = {
   edenPath: null,
   defaultPath: null,
   characters: [],   // [{name}]
+  charSearch: "",
   profiles: [],     // [{name, displayName, data}]
   current: null,    // {name, parsed, binds, macros, originalBinds, originalMacros, dirty}
   backedUpThisSession: new Set(),
@@ -206,6 +207,7 @@ const $layout = $("layout");
 const $sidebar = $("sidebar");
 const $bars = $("bars");
 const $charList = $("char-list");
+const $charSearch = $("char-search");
 const $profileList = $("profile-list");
 const $folderName = $("folder-name");
 const $filename = $("filename");
@@ -251,6 +253,10 @@ async function init() {
     if (state.edenPath) window.api.revealFolder(state.edenPath);
   });
   $importProfileBtn.addEventListener("click", importProfile);
+  $charSearch.addEventListener("input", (e) => {
+    state.charSearch = e.target.value;
+    renderCharList();
+  });
 
   $saveBtn.addEventListener("click", saveCurrent);
   $exportBtn.addEventListener("click", exportCurrent);
@@ -474,7 +480,18 @@ function renderCharList() {
     $charList.appendChild(empty);
     return;
   }
-  for (const char of state.characters) {
+  const query = state.charSearch.trim().toLowerCase();
+  const filtered = query
+    ? state.characters.filter(c => c.name.toLowerCase().includes(query))
+    : state.characters;
+  if (filtered.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "sidebar-empty";
+    empty.textContent = `No matches for ${state.charSearch}`;
+    $charList.appendChild(empty);
+    return;
+  }
+  for (const char of filtered) {
     const li = document.createElement("li");
     li.className = "char-item";
     if (state.current && state.current.name === char.name) li.classList.add("active");
@@ -548,6 +565,7 @@ function renderProfileList() {
 // ============================================================
 // Bar rendering
 // ============================================================
+let lastWheelMs = 0;
 function bankHasBinds(binds, bar, bank) {
   for (let slot = 1; slot <= 10; slot++) {
     if (binds[encodeQbindAddress(bar, bank, slot)]) return true;
@@ -571,6 +589,18 @@ function renderBars() {
 function renderBar(bar) {
   const wrap = document.createElement("div");
   wrap.className = "bar" + (state.expanded ? " expanded" : "");
+  wrap.addEventListener("wheel", (e) => {
+    if (state.expanded) return;
+    e.preventDefault();
+    const now = Date.now();
+    if (now - lastWheelMs < 120) return;
+    lastWheelMs = now;
+    const step = e.deltaY > 0 ? 1 : -1;
+    const newBank = Math.max(1, Math.min(10, state.selectedBank[bar] + step));
+    if (newBank === state.selectedBank[bar]) return;
+    state.selectedBank[bar] = newBank;
+    renderBars();
+  }, { passive: false });
 
   const header = document.createElement("div");
   header.className = "bar-header";
