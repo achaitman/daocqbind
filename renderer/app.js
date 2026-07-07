@@ -425,20 +425,22 @@ async function loadFolder() {
     $bars.innerHTML = `<div class="empty-state"><h2>No character INI files found</h2><p>Make sure you picked the eden folder.</p></div>`;
     state.current = null;
     updateToolbar();
-  } else if (!state.current || !state.characters.find(c => c.name === state.current.name)) {
-    await selectCharacter(state.characters[0]);
+  } else {
+    const cur = state.current;
+    const stillValid = cur && (cur.type === "profile"
+      ? state.profiles.some(p => p.name === cur.name)
+      : state.characters.some(c => c.name === cur.name));
+    if (!stillValid) {
+      state.current = null;
+      const groups = characterGroups();
+      if (groups.length) await selectCharacter(defaultSpec(groups[0]));
+    }
   }
   showToast(`${state.characters.length} character${state.characters.length === 1 ? "" : "s"}, ${profiles.length} profile${profiles.length === 1 ? "" : "s"}`);
 }
 
 async function selectCharacter(charEntry) {
-  if (state.current && state.current.dirty) {
-    const ok = await window.api.confirm({
-      title: "Unsaved changes",
-      message: `Discard unsaved changes for ${state.current.name}?`,
-    });
-    if (!ok) return;
-  }
+  if (!(await confirmDiscardOrSave())) return;
   const r = await window.api.readFile(fullPath(charEntry.name));
   if (!r.ok) {
     showToast("Failed to read file: " + r.error, "error");
@@ -448,6 +450,7 @@ async function selectCharacter(charEntry) {
   const binds = getQbinds(parsed);
   const macros = getMacros(parsed);
   state.current = {
+    type: "character",
     name: charEntry.name,
     parsed,
     binds,
@@ -456,6 +459,15 @@ async function selectCharacter(charEntry) {
     originalMacros: JSON.parse(JSON.stringify(macros)),
     dirty: false,
   };
+  setDefaultBanks(binds);
+  updateToolbar();
+  renderBars();
+  renderCharList();
+  renderProfileList();
+}
+
+// Pick the first bank with binds for each bar (so the user lands on a used bank).
+function setDefaultBanks(binds) {
   for (let bar = 1; bar <= 3; bar++) {
     let found = null;
     for (let bank = 1; bank <= 10; bank++) {
@@ -463,13 +475,106 @@ async function selectCharacter(charEntry) {
     }
     state.selectedBank[bar] = found || 1;
   }
+}
+
+// Load a profile into the editor (like selecting a character, but the source
+// is a JSON profile). Saving writes back to that profile file.
+async function selectProfile(profile) {
+  if (!(await confirmDiscardOrSave())) return;
+  const data = profile.data || {};
+  const binds = JSON.parse(JSON.stringify(data.binds || {}));
+  const macros = JSON.parse(JSON.stringify(data.macros || {}));
+  state.current = {
+    type: "profile",
+    name: profile.name,
+    displayName: profile.displayName,
+    data,
+    // Profiles have no INI structure; give an empty base so Export INI works.
+    parsed: parseIni(""),
+    binds,
+    macros,
+    originalBinds: JSON.parse(JSON.stringify(binds)),
+    originalMacros: JSON.parse(JSON.stringify(macros)),
+    dirty: false,
+  };
+  setDefaultBanks(binds);
   updateToolbar();
   renderBars();
   renderCharList();
+  renderProfileList();
 }
 
+// Guard-rail: if the current source has unsaved edits, ask Save / Discard /
+// Cancel. Returns true to proceed with the switch, false to abort it.
+async function confirmDiscardOrSave() {
+  if (!state.current || !state.current.dirty) return true;
+  const choice = await promptUnsavedChanges(currentLabel());
+  if (choice === "cancel") return false;
+  if (choice === "save") return await saveCurrent();
+  return true; // discard
+}
+
+// Themed in-app "unsaved changes" prompt. Resolves "save" | "discard" | "cancel".
+function promptUnsavedChanges(name) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.innerHTML = `
+      <h3>Unsaved changes</h3>
+      <div class="ctx">Save your changes to <strong>${escapeHtml(name || "the current item")}</strong>? If you don't, they'll be lost.</div>
+      <div class="modal-actions">
+        <button class="left" id="u-cancel">Cancel</button>
+        <button id="u-discard">Don't save</button>
+        <button class="primary" id="u-save">Save</button>
+      </div>
+    `;
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+
+    let done = false;
+    const finish = (choice) => {
+      if (done) return;
+      done = true;
+      document.removeEventListener("keydown", onKey, true);
+      document.body.removeChild(backdrop);
+      resolve(choice);
+    };
+    function onKey(e) {
+      if (e.key === "Escape") { e.stopPropagation(); finish("cancel"); }
+      else if (e.key === "Enter") { e.stopPropagation(); finish("save"); }
+    }
+    modal.querySelector("#u-cancel").addEventListener("click", () => finish("cancel"));
+    modal.querySelector("#u-discard").addEventListener("click", () => finish("discard"));
+    modal.querySelector("#u-save").addEventListener("click", () => finish("save"));
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) finish("cancel"); });
+    document.addEventListener("keydown", onKey, true);
+    modal.querySelector("#u-save").focus();
+  });
+}
+
+function specName(spec) {
+  if (spec === 41) return "Spec 1";
+  if (spec === 42) return "Spec 2";
+  return spec != null ? `Spec ${spec}` : null;
+}
+
+// Human-readable name for whatever is loaded (used in the toolbar + prompts).
+function currentLabel() {
+  const c = state.current;
+  if (!c) return "";
+  if (c.type === "profile") return c.displayName;
+  const { base, spec } = parseCharName(c.name);
+  const sn = specName(spec);
+  return sn ? `${base} — ${sn}` : base;
+}
+
+// Returns true on success, false if the save was cancelled or failed.
 async function saveCurrent() {
-  if (!state.current) return;
+  if (!state.current) return false;
+  if (state.current.type === "profile") return await saveCurrentProfile();
+
   if (state.daocRunning) {
     const ok = await window.api.confirm({
       kind: "warning",
@@ -477,14 +582,14 @@ async function saveCurrent() {
       message: "DAoC is currently running.",
       detail: "Saving now will work, but the game will overwrite your changes when you log out. Save anyway?",
     });
-    if (!ok) return;
+    if (!ok) return false;
   }
   const out = writeIni(state.current.parsed, state.current.binds, state.current.macros);
   const createBackup = !state.backedUpThisSession.has(state.current.name);
   const r = await window.api.writeFile(fullPath(state.current.name), out, createBackup);
   if (!r.ok) {
     showToast("Save failed: " + r.error, "error");
-    return;
+    return false;
   }
   if (createBackup) state.backedUpThisSession.add(state.current.name);
   state.current.originalBinds = JSON.parse(JSON.stringify(state.current.binds));
@@ -494,6 +599,35 @@ async function saveCurrent() {
   updateToolbar();
   renderCharList();
   showToast(createBackup ? `Saved (backup: ${state.current.name}.bak)` : `Saved ${state.current.name}`);
+  return true;
+}
+
+// Save the currently-loaded profile back to its JSON file.
+async function saveCurrentProfile() {
+  const cur = state.current;
+  const data = {
+    ...(cur.data || {}),
+    formatVersion: PROFILE_VERSION,
+    name: cur.displayName,
+    savedAt: new Date().toISOString(),
+    binds: cur.binds,
+    macros: cur.macros,
+  };
+  const r = await window.api.writeFile(fullPath(cur.name), JSON.stringify(data, null, 2), false);
+  if (!r.ok) {
+    showToast("Save failed: " + r.error, "error");
+    return false;
+  }
+  cur.data = data;
+  cur.originalBinds = JSON.parse(JSON.stringify(cur.binds));
+  cur.originalMacros = JSON.parse(JSON.stringify(cur.macros));
+  cur.dirty = false;
+  const p = state.profiles.find(p => p.name === cur.name);
+  if (p) p.data = data;
+  updateToolbar();
+  renderProfileList();
+  showToast(`Saved profile: ${cur.displayName}`);
+  return true;
 }
 
 async function exportCurrent() {
@@ -509,7 +643,7 @@ async function clearAllBinds() {
   const ok = await window.api.confirm({
     kind: "warning",
     title: "Clear all binds",
-    message: "Clear ALL qbinds for this character?",
+    message: "Clear ALL qbinds?",
     detail: "You'll still need to click Save to write the change to disk.",
   });
   if (!ok) return;
@@ -541,13 +675,16 @@ function updateToolbar() {
     $applyMultiBtn.disabled = true;
     return;
   }
-  $filename.innerHTML = (state.current.dirty ? '<span class="dirty-indicator"></span>' : '') + escapeHtml(state.current.name);
+  const label = state.current.type === "profile"
+    ? `Profile: ${state.current.displayName}`
+    : currentLabel();
+  $filename.innerHTML = (state.current.dirty ? '<span class="dirty-indicator"></span>' : '') + escapeHtml(label);
   $saveBtn.disabled = !state.current.dirty;
   $exportBtn.disabled = false;
   $clearBtn.disabled = Object.keys(state.current.binds).length === 0;
   $expandToggle.disabled = false;
   $saveProfileBtn.disabled = Object.keys(state.current.binds).length === 0;
-  $applyMultiBtn.disabled = state.profiles.length === 0;
+  $applyMultiBtn.disabled = Object.keys(state.current.binds).length === 0;
 }
 
 function markDirty() {
@@ -559,9 +696,44 @@ function markDirty() {
 // ============================================================
 // Sidebar rendering
 // ============================================================
+// Character files on Eden are named "<Name>-41.ini" (Spec 1) and
+// "<Name>-42.ini" (Spec 2). Group files by base name so the list shows one
+// entry per character; the user picks a spec after selecting.
+function parseCharName(filename) {
+  const base = filename.replace(/\.ini$/i, "");
+  const m = base.match(/^(.*)[-.](\d+)$/);
+  if (m) return { base: m[1], spec: parseInt(m[2], 10) };
+  return { base, spec: null };
+}
+
+function characterGroups() {
+  const groups = [];
+  const byBase = new Map();
+  for (const c of state.characters) {
+    const { base, spec } = parseCharName(c.name);
+    let g = byBase.get(base);
+    if (!g) { g = { base, specs: [] }; byBase.set(base, g); groups.push(g); }
+    g.specs.push({ name: c.name, spec });
+  }
+  for (const g of groups) g.specs.sort((a, b) => (a.spec ?? 0) - (b.spec ?? 0));
+  return groups;
+}
+
+// When a character is picked, default to Spec 1 (…-41) if present, else the first.
+function defaultSpec(group) {
+  return group.specs.find(s => s.spec === 41) || group.specs[0];
+}
+
+function specLabel(spec, index) {
+  if (spec === 41) return "Spec 1";
+  if (spec === 42) return "Spec 2";
+  return `Spec ${index + 1}`;
+}
+
 function renderCharList() {
   $charList.innerHTML = "";
-  if (state.characters.length === 0) {
+  const groups = characterGroups();
+  if (groups.length === 0) {
     const empty = document.createElement("li");
     empty.className = "sidebar-empty";
     empty.textContent = "No INI files found";
@@ -570,8 +742,8 @@ function renderCharList() {
   }
   const query = state.charSearch.trim().toLowerCase();
   const filtered = query
-    ? state.characters.filter(c => c.name.toLowerCase().includes(query))
-    : state.characters;
+    ? groups.filter(g => g.base.toLowerCase().includes(query))
+    : groups;
   if (filtered.length === 0) {
     const empty = document.createElement("li");
     empty.className = "sidebar-empty";
@@ -579,21 +751,46 @@ function renderCharList() {
     $charList.appendChild(empty);
     return;
   }
-  for (const char of filtered) {
+  const currentName = (state.current && state.current.type === "character") ? state.current.name : null;
+  for (const group of filtered) {
+    const isActive = currentName != null && group.specs.some(s => s.name === currentName);
     const li = document.createElement("li");
-    li.className = "char-item";
-    if (state.current && state.current.name === char.name) li.classList.add("active");
+    li.className = "char-item" + (isActive ? " active" : "");
+
+    const head = document.createElement("div");
+    head.className = "char-head";
     const name = document.createElement("span");
     name.className = "char-name";
-    name.textContent = char.name.replace(/\.ini$/i, "");
-    li.appendChild(name);
-    if (state.current && state.current.name === char.name && state.current.dirty) {
+    name.textContent = group.base;
+    head.appendChild(name);
+    if (isActive && state.current && state.current.dirty) {
       const dot = document.createElement("span");
       dot.className = "dirty-dot";
       dot.title = "Unsaved changes";
-      li.appendChild(dot);
+      head.appendChild(dot);
     }
-    li.addEventListener("click", () => selectCharacter(char));
+    head.addEventListener("click", () => {
+      if (!isActive) selectCharacter(defaultSpec(group));
+    });
+    li.appendChild(head);
+
+    // Spec picker: only when this character is selected and has more than one spec.
+    if (isActive && group.specs.length > 1) {
+      const specs = document.createElement("div");
+      specs.className = "char-specs";
+      group.specs.forEach((s, i) => {
+        const btn = document.createElement("button");
+        btn.className = "spec-btn" + (s.name === currentName ? " active" : "");
+        btn.textContent = specLabel(s.spec, i);
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (s.name !== currentName) selectCharacter(s);
+        });
+        specs.appendChild(btn);
+      });
+      li.appendChild(specs);
+    }
+
     $charList.appendChild(li);
   }
 }
@@ -607,14 +804,22 @@ function renderProfileList() {
     $profileList.appendChild(empty);
     return;
   }
+  const currentName = (state.current && state.current.type === "profile") ? state.current.name : null;
   for (const profile of state.profiles) {
+    const isActive = profile.name === currentName;
     const li = document.createElement("li");
-    li.className = "profile-item";
-    li.title = `Apply ${profile.displayName} to current character`;
+    li.className = "profile-item" + (isActive ? " active" : "");
+    li.title = `Edit ${profile.displayName}`;
     const name = document.createElement("span");
     name.className = "profile-name";
     name.textContent = profile.displayName;
     li.appendChild(name);
+    if (isActive && state.current && state.current.dirty) {
+      const dot = document.createElement("span");
+      dot.className = "dirty-dot";
+      dot.title = "Unsaved changes";
+      li.appendChild(dot);
+    }
 
     const actions = document.createElement("div");
     actions.className = "profile-actions";
@@ -645,7 +850,7 @@ function renderProfileList() {
     actions.appendChild(deleteBtn);
     li.appendChild(actions);
 
-    li.addEventListener("click", () => openApplyProfileModal(profile));
+    li.addEventListener("click", () => selectProfile(profile));
     $profileList.appendChild(li);
   }
 }
@@ -908,7 +1113,7 @@ function buildProfileData(displayName, binds, macros) {
     formatVersion: PROFILE_VERSION,
     name: displayName,
     savedAt: new Date().toISOString(),
-    sourceCharacter: state.current ? state.current.name.replace(/\.ini$/i, "") : null,
+    sourceCharacter: (state.current && state.current.type === "character") ? state.current.name.replace(/\.ini$/i, "") : null,
     binds,
     macros,
   };
@@ -996,123 +1201,28 @@ function openSaveProfileModal() {
   updateState();
 }
 
-function applyProfileToBindsMacros(profile, currentBinds, currentMacros, qMode, mMode) {
-  const data = profile.data;
-  let newBinds = qMode === "replace" ? {} : { ...currentBinds };
-  for (const addr in (data.binds || {})) {
-    newBinds[parseInt(addr)] = { ...data.binds[addr] };
+// Merge a source set of binds/macros into a target set per the chosen modes.
+function mergeBindsMacros(srcBinds, srcMacros, curBinds, curMacros, qMode, mMode) {
+  let newBinds = qMode === "replace" ? {} : { ...curBinds };
+  for (const addr in (srcBinds || {})) {
+    newBinds[parseInt(addr)] = { ...srcBinds[addr] };
   }
-  let newMacros = currentMacros;
+  let newMacros = curMacros;
   if (mMode !== "skip") {
-    newMacros = mMode === "replace" ? {} : { ...currentMacros };
-    for (const idx in (data.macros || {})) {
-      newMacros[parseInt(idx)] = { ...data.macros[idx] };
+    newMacros = mMode === "replace" ? {} : { ...curMacros };
+    for (const idx in (srcMacros || {})) {
+      newMacros[parseInt(idx)] = { ...srcMacros[idx] };
     }
   }
   return { binds: newBinds, macros: newMacros };
-}
-
-function openApplyProfileModal(profile) {
-  if (!state.current) {
-    showToast("Load a character first.", "warn");
-    return;
-  }
-  const data = profile.data;
-  const profileBindCount = Object.keys(data.binds || {}).length;
-  const profileMacroCount = Object.keys(data.macros || {}).length;
-  const charBindCount = Object.keys(state.current.binds).length;
-
-  const backdrop = document.createElement("div");
-  backdrop.className = "modal-backdrop";
-  const modal = document.createElement("div");
-  modal.className = "modal";
-  modal.innerHTML = `
-    <h3>Apply profile: ${escapeHtml(profile.displayName)}</h3>
-    <div class="ctx">Apply to <strong>${escapeHtml(state.current.name)}</strong>. This stages the changes — you'll still need to click Save to write them to disk.</div>
-
-    <label class="field-label" style="margin-bottom: 8px;">Qbinds</label>
-    <div class="radio-group" id="qbind-mode">
-      <div class="radio-option selected" data-mode="merge">
-        <div class="radio-title">Merge</div>
-        <div class="radio-desc">Add the profile's ${profileBindCount} bind${profileBindCount === 1 ? "" : "s"}, leaving existing slots alone (profile wins on conflicts)</div>
-      </div>
-      <div class="radio-option" data-mode="replace">
-        <div class="radio-title">Replace all</div>
-        <div class="radio-desc">Clear ${charBindCount} existing bind${charBindCount === 1 ? "" : "s"} and use only the profile's ${profileBindCount}</div>
-      </div>
-    </div>
-
-    ${profileMacroCount > 0 ? `
-      <label class="field-label" style="margin-bottom: 8px;">Macros (${profileMacroCount} in profile)</label>
-      <div class="radio-group" id="macro-mode">
-        <div class="radio-option selected" data-mode="merge">
-          <div class="radio-title">Merge</div>
-          <div class="radio-desc">Add profile's macros to character's existing ones (profile wins on conflicts)</div>
-        </div>
-        <div class="radio-option" data-mode="replace">
-          <div class="radio-title">Replace all</div>
-          <div class="radio-desc">Use only the profile's macros</div>
-        </div>
-        <div class="radio-option" data-mode="skip">
-          <div class="radio-title">Skip</div>
-          <div class="radio-desc">Don't touch macros</div>
-        </div>
-      </div>
-    ` : ''}
-
-    <div class="modal-actions" style="margin-top: 8px;">
-      <button id="m-cancel">Cancel</button>
-      <button class="primary" id="m-apply">Apply</button>
-    </div>
-  `;
-  backdrop.appendChild(modal);
-  document.body.appendChild(backdrop);
-
-  function bindGroup(groupId) {
-    const group = modal.querySelector("#" + groupId);
-    if (!group) return null;
-    let selected = "merge";
-    group.querySelectorAll(".radio-option").forEach(opt => {
-      opt.addEventListener("click", () => {
-        group.querySelectorAll(".radio-option").forEach(o => o.classList.remove("selected"));
-        opt.classList.add("selected");
-        selected = opt.dataset.mode;
-      });
-    });
-    return () => selected;
-  }
-  const getQbindMode = bindGroup("qbind-mode");
-  const getMacroMode = bindGroup("macro-mode");
-
-  function close() { document.body.removeChild(backdrop); }
-  modal.querySelector("#m-cancel").addEventListener("click", close);
-  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
-
-  modal.querySelector("#m-apply").addEventListener("click", () => {
-    const qMode = getQbindMode();
-    const mMode = getMacroMode ? getMacroMode() : "skip";
-    const result = applyProfileToBindsMacros(profile, state.current.binds, state.current.macros, qMode, mMode);
-    state.current.binds = result.binds;
-    state.current.macros = result.macros;
-    markDirty();
-    renderBars();
-    renderCharList();
-    const parts = [];
-    parts.push(`${qMode === "replace" ? "Replaced" : "Merged"} ${Object.keys(data.binds || {}).length} qbind${Object.keys(data.binds || {}).length === 1 ? "" : "s"}`);
-    if (mMode !== "skip" && profileMacroCount > 0) {
-      parts.push(`${mMode === "replace" ? "replaced" : "merged"} ${profileMacroCount} macro${profileMacroCount === 1 ? "" : "s"}`);
-    }
-    showToast(`${parts.join(", ")}. Click Save to write to disk.`);
-    close();
-  });
 }
 
 // ============================================================
 // Multi-character apply
 // ============================================================
 function openMultiApplyModal() {
-  if (state.profiles.length === 0) {
-    showToast("No profiles to apply.", "warn");
+  if (!state.current || Object.keys(state.current.binds).length === 0) {
+    showToast("Load a character or profile with binds first.", "warn");
     return;
   }
 
@@ -1122,21 +1232,14 @@ function openMultiApplyModal() {
   modal.className = "modal";
   modal.style.minWidth = "480px";
   modal.innerHTML = `
-    <h3>Apply profile to multiple characters</h3>
-    <div class="ctx">Pick a profile, choose how to merge, then select which characters to write to. Each character will get a fresh <code>.bak</code> backup before being modified.</div>
-
-    <div class="field">
-      <label class="field-label">Profile</label>
-      <select id="profile-select" style="width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; padding: 7px 10px; font-size: 13px;">
-        ${state.profiles.map((p, i) => `<option value="${i}">${escapeHtml(p.displayName)}</option>`).join("")}
-      </select>
-    </div>
+    <h3>Apply binds to characters</h3>
+    <div class="ctx">Copies the binds/macros from <strong>${escapeHtml(currentLabel())}</strong> into the characters you pick below. Each gets a fresh <code>.bak</code> backup first.</div>
 
     <label class="field-label" style="margin-bottom: 8px;">Qbinds</label>
     <div class="radio-group" id="qbind-mode">
       <div class="radio-option selected" data-mode="merge">
         <div class="radio-title">Merge</div>
-        <div class="radio-desc">Add profile binds, leave existing slots alone</div>
+        <div class="radio-desc">Add these binds, leave existing slots alone</div>
       </div>
       <div class="radio-option" data-mode="replace">
         <div class="radio-title">Replace all</div>
@@ -1148,11 +1251,11 @@ function openMultiApplyModal() {
     <div class="radio-group" id="macro-mode">
       <div class="radio-option selected" data-mode="merge">
         <div class="radio-title">Merge</div>
-        <div class="radio-desc">Add profile macros, profile wins on conflicts</div>
+        <div class="radio-desc">Add these macros, they win on conflicts</div>
       </div>
       <div class="radio-option" data-mode="replace">
         <div class="radio-title">Replace all</div>
-        <div class="radio-desc">Use only the profile's macros</div>
+        <div class="radio-desc">Use only these macros</div>
       </div>
       <div class="radio-option" data-mode="skip">
         <div class="radio-title">Skip</div>
@@ -1166,12 +1269,17 @@ function openMultiApplyModal() {
       <a id="select-none">None</a>
     </div>
     <div class="char-checklist" id="char-checklist">
-      ${state.characters.map(c => `
+      ${state.characters
+        .filter(c => !(state.current.type === "character" && c.name === state.current.name))
+        .map(c => {
+          const { base, spec } = parseCharName(c.name);
+          const sn = specName(spec);
+          return `
         <label class="char-row">
           <input type="checkbox" data-name="${escapeHtml(c.name)}">
-          ${escapeHtml(c.name.replace(/\.ini$/i, ""))}
-        </label>
-      `).join("")}
+          ${escapeHtml(sn ? `${base} — ${sn}` : base)}
+        </label>`;
+        }).join("")}
     </div>
 
     <div id="progress-section" style="display:none; margin-bottom: 12px;">
@@ -1219,8 +1327,8 @@ function openMultiApplyModal() {
 
   modal.querySelector("#m-apply").addEventListener("click", async () => {
     if (applying) return;
-    const profileIdx = parseInt(modal.querySelector("#profile-select").value, 10);
-    const profile = state.profiles[profileIdx];
+    const srcBinds = state.current.binds;
+    const srcMacros = state.current.macros;
     const selected = Array.from(modal.querySelectorAll('#char-checklist input[type=checkbox]:checked')).map(cb => cb.dataset.name);
     if (selected.length === 0) {
       showToast("No characters selected.", "warn");
@@ -1268,7 +1376,7 @@ function openMultiApplyModal() {
         const parsed = parseIni(r.text);
         const binds = getQbinds(parsed);
         const macros = getMacros(parsed);
-        const result = applyProfileToBindsMacros(profile, binds, macros, qMode, mMode);
+        const result = mergeBindsMacros(srcBinds, srcMacros, binds, macros, qMode, mMode);
         const out = writeIni(parsed, result.binds, mMode === "skip" ? null : result.macros);
         // Always create backup in multi-apply mode for safety, regardless of session backup state
         const w = await window.api.writeFile(fullPath(name), out, true);
@@ -1287,24 +1395,6 @@ function openMultiApplyModal() {
     modal.querySelector("#m-cancel").disabled = false;
     modal.querySelector("#m-cancel").textContent = "Close";
     applying = false;
-
-    // If the currently-edited character was in the batch, reload it from disk so the UI reflects the new state
-    if (state.current && selected.includes(state.current.name)) {
-      const r = await window.api.readFile(fullPath(state.current.name));
-      if (r.ok) {
-        const parsed = parseIni(r.text);
-        state.current.parsed = parsed;
-        state.current.binds = getQbinds(parsed);
-        state.current.macros = getMacros(parsed);
-        state.current.originalBinds = JSON.parse(JSON.stringify(state.current.binds));
-        state.current.originalMacros = JSON.parse(JSON.stringify(state.current.macros));
-        state.current.dirty = false;
-        renderBars();
-        renderCharList();
-        updateToolbar();
-      }
-    }
-
     showToast(`${succeeded} succeeded, ${failed} failed`);
   });
 }

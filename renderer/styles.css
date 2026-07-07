@@ -308,6 +308,22 @@ button.toggle.active {
   color: var(--on-accent);
   border-color: var(--accent);
 }
+/* Uniform sizing for the top toolbar controls (overrides the smaller
+   .toggle padding and the theme select so every control matches). */
+.toolbar > button,
+.toolbar > label.btn {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.toolbar > .theme-select {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
 input[type=text] {
   background: var(--bg);
   color: var(--text);
@@ -380,9 +396,13 @@ label.field-label {
 }
 .sidebar-actions { display: flex; gap: 4px; }
 .sidebar-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 2px 8px;
   font-size: 11px;
 }
+.sidebar-actions button .icon { display: block; }
 .folder-name {
   font-size: 11px;
   color: var(--text-muted);
@@ -416,7 +436,7 @@ label.field-label {
 }
 .char-list { flex: 1; max-height: 40vh; }
 .profile-list { max-height: 30vh; }
-.char-item, .profile-item {
+.profile-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -427,8 +447,21 @@ label.field-label {
   transition: background 0.1s;
   margin-bottom: 2px;
 }
-.char-item:hover, .profile-item:hover { background: var(--panel-2); }
-.char-item.active {
+.profile-item:hover { background: var(--panel-2); }
+.profile-item.active { background: var(--slot-bound); color: var(--text); }
+.char-item { margin-bottom: 2px; }
+.char-item .char-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.1s;
+}
+.char-item .char-head:hover { background: var(--panel-2); }
+.char-item.active .char-head {
   background: var(--slot-bound);
   color: var(--text);
 }
@@ -439,13 +472,37 @@ label.field-label {
   flex: 1;
   min-width: 0;
 }
-.char-item .dirty-dot {
+.char-item .dirty-dot, .profile-item .dirty-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--warn);
   margin-left: 6px;
   flex-shrink: 0;
+}
+.char-specs {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px 6px;
+}
+.spec-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--panel-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.spec-btn:hover { border-color: var(--accent); color: var(--text); }
+.spec-btn.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  font-weight: 500;
 }
 .profile-item .profile-actions {
   display: flex;
