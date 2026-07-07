@@ -8,6 +8,17 @@ const fssync = require("fs");
 const { exec } = require("child_process");
 const { findEdenFolder, looksLikeEdenFolder, getDefaultEdenPath } = require("./eden-finder");
 
+// electron-updater is optional at runtime; guard so the app still boots if
+// it's somehow unavailable (e.g. an unpackaged/partial build).
+let autoUpdater = null;
+try {
+  ({ autoUpdater } = require("electron-updater"));
+} catch (_) {
+  autoUpdater = null;
+}
+
+const UPDATE_REPO = { owner: "achaitman", repo: "daocqbind" };
+
 // ---- Settings persistence ----
 // We keep a tiny JSON file in userData with the chosen eden folder path.
 const SETTINGS_PATH = () => path.join(app.getPath("userData"), "settings.json");
@@ -114,6 +125,8 @@ function createWindow() {
   // Start polling for DAoC running every 5s once the window is ready
   mainWindow.webContents.on("did-finish-load", () => {
     pollDaocRunning();
+    // Give the renderer a moment to register its updater listener, then check.
+    setTimeout(initUpdater, 2500);
   });
 }
 
@@ -137,6 +150,106 @@ ipcMain.handle("ui:about", () => {
     detail: `Version ${app.getVersion()}\n\nVisual editor for Dark Age of Camelot quickbar key bindings.\n\nBuilt with Electron.`,
     buttons: ["OK"],
   });
+});
+
+// ---- Auto-update ----
+// Installed (NSIS) builds use electron-updater for a full download+install+
+// restart. Portable builds and dev can't self-install, so they fall back to
+// a lightweight GitHub API version check that opens the download page.
+
+let manualUpdateUrl = null;
+let updaterWired = false;
+
+function isPortableBuild() {
+  return !!process.env.PORTABLE_EXECUTABLE_DIR;
+}
+function canAutoInstall() {
+  return app.isPackaged && !isPortableBuild() && !!autoUpdater;
+}
+
+function sendUpdaterStatus(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("updater:status", payload);
+  }
+}
+
+function parseVersion(v) {
+  return String(v).replace(/^v/i, "").split(/[.\-+]/).map((n) => parseInt(n, 10) || 0);
+}
+function isNewerVersion(remote, local) {
+  const a = parseVersion(remote);
+  const b = parseVersion(local);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] || 0;
+    const y = b[i] || 0;
+    if (x > y) return true;
+    if (x < y) return false;
+  }
+  return false;
+}
+
+async function manualUpdateCheck() {
+  sendUpdaterStatus({ state: "checking" });
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`,
+      { headers: { "User-Agent": "daoc-qbind-editor", Accept: "application/vnd.github+json" } }
+    );
+    if (!res.ok) throw new Error("GitHub API " + res.status);
+    const data = await res.json();
+    const remote = String(data.tag_name || "").replace(/^v/i, "");
+    if (remote && isNewerVersion(remote, app.getVersion())) {
+      manualUpdateUrl = data.html_url ||
+        `https://github.com/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`;
+      sendUpdaterStatus({ state: "available", version: remote, canInstall: false });
+    } else {
+      sendUpdaterStatus({ state: "none" });
+    }
+  } catch (err) {
+    sendUpdaterStatus({ state: "error", message: String((err && err.message) || err) });
+  }
+}
+
+function runUpdateCheck() {
+  if (canAutoInstall()) {
+    Promise.resolve()
+      .then(() => autoUpdater.checkForUpdates())
+      .catch((err) => sendUpdaterStatus({ state: "error", message: String((err && err.message) || err) }));
+  } else {
+    manualUpdateCheck();
+  }
+}
+
+function initUpdater() {
+  if (canAutoInstall() && !updaterWired) {
+    updaterWired = true;
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.on("checking-for-update", () => sendUpdaterStatus({ state: "checking" }));
+    autoUpdater.on("update-available", (info) =>
+      sendUpdaterStatus({ state: "downloading", version: info.version, percent: 0 }));
+    autoUpdater.on("update-not-available", () => sendUpdaterStatus({ state: "none" }));
+    autoUpdater.on("download-progress", (p) =>
+      sendUpdaterStatus({ state: "downloading", percent: Math.round(p.percent) }));
+    autoUpdater.on("update-downloaded", (info) =>
+      sendUpdaterStatus({ state: "ready", version: info.version, canInstall: true }));
+    autoUpdater.on("error", (err) =>
+      sendUpdaterStatus({ state: "error", message: String((err && err.message) || err) }));
+  }
+  runUpdateCheck();
+}
+
+ipcMain.handle("updater:check", () => { runUpdateCheck(); });
+ipcMain.on("updater:install", () => {
+  if (canAutoInstall()) {
+    try {
+      autoUpdater.quitAndInstall();
+    } catch (err) {
+      sendUpdaterStatus({ state: "error", message: String((err && err.message) || err) });
+    }
+  } else if (manualUpdateUrl) {
+    shell.openExternal(manualUpdateUrl);
+  }
 });
 
 // ---- IPC: filesystem operations ----

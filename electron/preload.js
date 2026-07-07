@@ -48,6 +48,13 @@ contextBridge.exposeInMainWorld("api", {
   },
   showAbout: () => ipcRenderer.invoke("ui:about"),
 
+  // Auto-update
+  onUpdaterStatus: (handler) => {
+    ipcRenderer.on("updater:status", (_event, data) => handler(data));
+  },
+  checkForUpdates: () => ipcRenderer.invoke("updater:check"),
+  installUpdate: () => ipcRenderer.send("updater:install"),
+
   // Path utilities
   pathJoin: (...parts) => parts.join(/\\|\//.test(parts[0] || "") ? "\\" : "/"),
 });
