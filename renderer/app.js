@@ -11,6 +11,31 @@
 //   7. Toasts
 // ============================================================
 
+// ============================================================
+// Theme
+// "classic" (default gold/brown) and "eden" (green/teal).
+// Applied ASAP on load so there's no flash of the wrong palette.
+// ============================================================
+const THEME_KEY = "daoc-qbind-theme";
+const THEMES = ["classic", "eden", "albion", "midgard", "hibernia"];
+
+function applyTheme(theme) {
+  // "classic" is the default :root palette — no attribute needed.
+  if (theme && theme !== "classic" && THEMES.includes(theme)) {
+    document.documentElement.setAttribute("data-theme", theme);
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+}
+
+function getSavedTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  return THEMES.includes(saved) ? saved : "classic";
+}
+
+// Apply immediately (DOM is already parsed — this script is at end of body).
+applyTheme(getSavedTheme());
+
 const SCAN_CODE_TO_LABEL = {
   1: "Esc",
   2: "1", 3: "2", 4: "3", 5: "4", 6: "5", 7: "6", 8: "7", 9: "8", 10: "9", 11: "0",
@@ -222,11 +247,20 @@ const $revealBtn = $("reveal-folder-btn");
 const $importProfileBtn = $("import-profile-btn");
 const $pickFolderEmpty = $("pick-folder-btn-empty");
 const $daocWarning = $("daoc-warning");
+const $themeSelect = $("theme-select");
 
 // ============================================================
 // Init
 // ============================================================
 async function init() {
+  // Theme selector (theme itself was already applied at load time)
+  $themeSelect.value = getSavedTheme();
+  $themeSelect.addEventListener("change", (e) => {
+    const theme = THEMES.includes(e.target.value) ? e.target.value : "classic";
+    localStorage.setItem(THEME_KEY, theme);
+    applyTheme(theme);
+  });
+
   const initial = await window.api.getInitialState();
   state.defaultPath = initial.defaultPath;
   document.title = `DAoC Qbind Editor v${initial.appVersion}`;

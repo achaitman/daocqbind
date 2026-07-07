@@ -1,3 +1,9 @@
+/* ============================================================
+   Themes
+   Default :root is the "Classic" DAoC gold/brown look.
+   [data-theme="eden"] overrides it with the Eden Launcher
+   green/teal palette. Add more themes by copying the block.
+   ============================================================ */
 :root {
   --bg: #1a1a1a;
   --panel: #242424;
@@ -8,6 +14,8 @@
   --text-muted: #999;
   --accent: #c9a961;
   --accent-hover: #e0bd6f;
+  --on-accent: #1a1a1a;
+  --accent-soft: rgba(201, 169, 97, 0.08);
   --slot-empty: #2a2a2a;
   --slot-bound: #3d4f3a;
   --slot-bound-border: #5a8050;
@@ -18,12 +26,118 @@
   --alt: #8a6da0;
   --danger: #c0524a;
   --warn: #d4a648;
+  --app-bg: var(--bg);
+}
+
+/* Eden — matches the Eden Launcher green/teal aesthetic */
+:root[data-theme="eden"] {
+  --bg: #0b1719;
+  --panel: #0f2426;
+  --panel-2: #163a3c;
+  --border: #1d4448;
+  --border-strong: #2c6167;
+  --text: #d7ece7;
+  --text-muted: #6f9b97;
+  --accent: #3fd9c0;
+  --accent-hover: #63ecd6;
+  --on-accent: #06201d;
+  --accent-soft: rgba(63, 217, 192, 0.10);
+  --slot-empty: #0e2224;
+  --slot-bound: #123f39;
+  --slot-bound-border: #2f9384;
+  --slot-hover: #17393c;
+  --slot-active: #1c5a4e;
+  --shift: #3b82c4;
+  --ctrl: #c05a4a;
+  --alt: #9a76b4;
+  --danger: #e0645a;
+  --warn: #e0b354;
+  --app-bg: radial-gradient(1200px 600px at 50% -10%, #16302f 0%, #0c1c1e 45%, #070f10 100%);
+}
+
+/* Albion — crimson & warm stone */
+:root[data-theme="albion"] {
+  --bg: #180e0e;
+  --panel: #241515;
+  --panel-2: #3a2222;
+  --border: #4a2828;
+  --border-strong: #6d3c3c;
+  --text: #f0e2de;
+  --text-muted: #b08a86;
+  --accent: #e05a52;
+  --accent-hover: #f47a70;
+  --on-accent: #200a08;
+  --accent-soft: rgba(224, 90, 82, 0.10);
+  --slot-empty: #200f0f;
+  --slot-bound: #43201e;
+  --slot-bound-border: #9a4a44;
+  --slot-hover: #351b1b;
+  --slot-active: #5c2a26;
+  --shift: #4a6da8;
+  --ctrl: #cf7a2e;
+  --alt: #a978c0;
+  --danger: #ff7a6f;
+  --warn: #e0b354;
+  --app-bg: radial-gradient(1200px 600px at 50% -10%, #331717 0%, #1c0e0e 45%, #0f0707 100%);
+}
+
+/* Midgard — icy blue & steel */
+:root[data-theme="midgard"] {
+  --bg: #0c1420;
+  --panel: #101c2e;
+  --panel-2: #1a2c44;
+  --border: #223650;
+  --border-strong: #345174;
+  --text: #dce6f2;
+  --text-muted: #7b93b0;
+  --accent: #4a9fe0;
+  --accent-hover: #6bb8f4;
+  --on-accent: #06121f;
+  --accent-soft: rgba(74, 159, 224, 0.10);
+  --slot-empty: #0e1a2a;
+  --slot-bound: #16324e;
+  --slot-bound-border: #3a76ad;
+  --slot-hover: #182f48;
+  --slot-active: #1e4570;
+  --shift: #6a8fd0;
+  --ctrl: #c05a4a;
+  --alt: #9a76b4;
+  --danger: #e0645a;
+  --warn: #e0b354;
+  --app-bg: radial-gradient(1200px 600px at 50% -10%, #16304f 0%, #0c1a2a 45%, #070e16 100%);
+}
+
+/* Hibernia — emerald & forest */
+:root[data-theme="hibernia"] {
+  --bg: #0c1810;
+  --panel: #102616;
+  --panel-2: #1a3d24;
+  --border: #22482c;
+  --border-strong: #356b40;
+  --text: #dcefe0;
+  --text-muted: #7ba888;
+  --accent: #4fc46a;
+  --accent-hover: #6fe088;
+  --on-accent: #06200e;
+  --accent-soft: rgba(79, 196, 106, 0.10);
+  --slot-empty: #0e2213;
+  --slot-bound: #123f22;
+  --slot-bound-border: #2f9348;
+  --slot-hover: #173920;
+  --slot-active: #1c5a2e;
+  --shift: #4a6da8;
+  --ctrl: #c05a4a;
+  --alt: #9a76b4;
+  --danger: #e0645a;
+  --warn: #e0b354;
+  --app-bg: radial-gradient(1200px 600px at 50% -10%, #163016 0%, #0c1c10 45%, #070f08 100%);
 }
 * { box-sizing: border-box; }
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
+  background: var(--app-bg);
+  background-attachment: fixed;
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
@@ -39,7 +153,7 @@ html, body {
 }
 .daoc-warning strong { color: var(--warn); margin-right: 8px; }
 .app {
-  max-width: 1280px;
+  max-width: none;
   margin: 0 auto;
   padding: 16px 20px 40px;
 }
@@ -65,6 +179,19 @@ header h1 {
   align-items: center;
   flex-wrap: wrap;
 }
+.theme-select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.1s;
+}
+.theme-select:hover { border-color: var(--accent); }
+.theme-select:focus { outline: none; border-color: var(--accent); }
 button, label.btn {
   background: var(--panel-2);
   color: var(--text);
@@ -82,7 +209,7 @@ button:hover:not(:disabled), label.btn:hover {
 }
 button.primary {
   background: var(--accent);
-  color: #1a1a1a;
+  color: var(--on-accent);
   border-color: var(--accent);
   font-weight: 500;
 }
@@ -108,7 +235,7 @@ button.toggle {
 }
 button.toggle.active {
   background: var(--accent);
-  color: #1a1a1a;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 input[type=text] {
@@ -360,7 +487,7 @@ label.field-label {
 }
 .bank-chip.active {
   background: var(--accent);
-  color: #1a1a1a;
+  color: var(--on-accent);
   border-color: var(--accent);
   font-weight: 500;
 }
@@ -541,7 +668,7 @@ label.field-label {
 .radio-option:hover { border-color: var(--accent); }
 .radio-option.selected {
   border-color: var(--accent);
-  background: rgba(201, 169, 97, 0.08);
+  background: var(--accent-soft);
 }
 .radio-option .radio-title {
   font-weight: 500;
