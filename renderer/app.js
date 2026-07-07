@@ -248,6 +248,12 @@ const $importProfileBtn = $("import-profile-btn");
 const $pickFolderEmpty = $("pick-folder-btn-empty");
 const $daocWarning = $("daoc-warning");
 const $themeSelect = $("theme-select");
+const $titlebar = $("titlebar");
+const $winMin = $("win-min");
+const $winMax = $("win-max");
+const $winClose = $("win-close");
+const $winMenuBtn = $("win-menu-btn");
+const $winMenu = $("win-menu");
 
 // ============================================================
 // Init
@@ -260,6 +266,8 @@ async function init() {
     localStorage.setItem(THEME_KEY, theme);
     applyTheme(theme);
   });
+
+  initTitleBar();
 
   const initial = await window.api.getInitialState();
   state.defaultPath = initial.defaultPath;
@@ -304,6 +312,52 @@ async function init() {
       e.preventDefault();
       e.returnValue = "";
     }
+  });
+}
+
+// ============================================================
+// Frameless title bar (window controls + hamburger menu)
+// ============================================================
+const MAX_GLYPH = "□";      // □  maximize
+const RESTORE_GLYPH = "❐";  // ❐  restore (window is maximized)
+
+function setMaxGlyph(isMax) {
+  $winMax.textContent = isMax ? RESTORE_GLYPH : MAX_GLYPH;
+  $winMax.title = isMax ? "Restore" : "Maximize";
+}
+
+function closeWinMenu() { $winMenu.hidden = true; }
+
+function initTitleBar() {
+  $winMin.addEventListener("click", () => window.api.windowMinimize());
+  $winMax.addEventListener("click", () => window.api.windowMaximizeToggle());
+  $winClose.addEventListener("click", () => window.api.windowClose());
+
+  // Double-clicking the draggable area toggles maximize, like a native bar.
+  $titlebar.addEventListener("dblclick", (e) => {
+    if (e.target.closest(".titlebar-controls")) return;
+    window.api.windowMaximizeToggle();
+  });
+
+  // Keep the maximize/restore glyph in sync.
+  window.api.onWindowMaximizedChange(setMaxGlyph);
+  window.api.windowIsMaximized().then(setMaxGlyph);
+
+  // Hamburger menu (replaces the old native File/Help menu items).
+  $winMenuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    $winMenu.hidden = !$winMenu.hidden;
+  });
+  $("menu-change-folder").addEventListener("click", () => { closeWinMenu(); pickFolder(); });
+  $("menu-reload-folder").addEventListener("click", () => { closeWinMenu(); loadFolder(); });
+  $("menu-about").addEventListener("click", () => { closeWinMenu(); window.api.showAbout(); });
+
+  // Close the menu on any outside click or Escape.
+  document.addEventListener("click", (e) => {
+    if (!$winMenu.hidden && !e.target.closest(".win-menu-wrap")) closeWinMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeWinMenu();
   });
 }
 

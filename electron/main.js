@@ -41,7 +41,8 @@ function createWindow() {
     minHeight: 600,
     title: "DAoC Qbind Editor",
     backgroundColor: "#1a1a1a",
-    autoHideMenuBar: false,
+    frame: false,          // custom in-app title bar (see renderer titlebar)
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -51,6 +52,11 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+
+  // Frameless window: tell the renderer when maximize state changes so the
+  // custom title bar can swap the maximize/restore glyph.
+  mainWindow.on("maximize", () => mainWindow.webContents.send("win:maximized-changed", true));
+  mainWindow.on("unmaximize", () => mainWindow.webContents.send("win:maximized-changed", false));
 
   // Build a minimal app menu
   const menu = Menu.buildFromTemplate([
@@ -110,6 +116,28 @@ function createWindow() {
     pollDaocRunning();
   });
 }
+
+// ---- IPC: frameless window controls ----
+
+ipcMain.on("win:minimize", () => mainWindow && mainWindow.minimize());
+ipcMain.on("win:maximize-toggle", () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+ipcMain.on("win:close", () => mainWindow && mainWindow.close());
+ipcMain.handle("win:is-maximized", () => !!(mainWindow && mainWindow.isMaximized()));
+
+ipcMain.handle("ui:about", () => {
+  if (!mainWindow) return;
+  dialog.showMessageBox(mainWindow, {
+    type: "info",
+    title: "About",
+    message: "DAoC Qbind Editor",
+    detail: `Version ${app.getVersion()}\n\nVisual editor for Dark Age of Camelot quickbar key bindings.\n\nBuilt with Electron.`,
+    buttons: ["OK"],
+  });
+});
 
 // ---- IPC: filesystem operations ----
 

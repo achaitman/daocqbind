@@ -7,6 +7,25 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="titlebar" class="titlebar">
+  <div class="titlebar-brand">DAoC Qbind Editor</div>
+  <div class="titlebar-drag"></div>
+  <div class="titlebar-controls">
+    <div class="win-menu-wrap">
+      <button id="win-menu-btn" class="titlebar-btn" title="Menu" aria-label="Menu">&#9776;</button>
+      <div id="win-menu" class="win-menu" hidden>
+        <button class="win-menu-item" id="menu-change-folder">Change eden folder…</button>
+        <button class="win-menu-item" id="menu-reload-folder">Reload folder <span class="menu-accel">F5</span></button>
+        <div class="win-menu-sep"></div>
+        <button class="win-menu-item" id="menu-about">About</button>
+      </div>
+    </div>
+    <button id="win-min" class="titlebar-btn" title="Minimize" aria-label="Minimize">&#8211;</button>
+    <button id="win-max" class="titlebar-btn" title="Maximize" aria-label="Maximize">&#9633;</button>
+    <button id="win-close" class="titlebar-btn win-close" title="Close" aria-label="Close">&#10005;</button>
+  </div>
+</div>
+
 <div id="daoc-warning" class="daoc-warning" style="display:none">
   <strong>DAoC is currently running.</strong>
   Saving now will work, but the game will overwrite your changes when you log out. Close the game first for safety.
@@ -14,7 +33,6 @@
 
 <div class="app">
   <header>
-    <h1>DAoC Qbind Editor</h1>
     <div class="toolbar">
       <span id="filename" class="filename"></span>
       <select id="theme-select" class="theme-select" title="Color theme">

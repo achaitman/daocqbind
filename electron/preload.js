@@ -38,6 +38,16 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on("menu:reload-folder", () => handler());
   },
 
+  // Frameless window controls
+  windowMinimize: () => ipcRenderer.send("win:minimize"),
+  windowMaximizeToggle: () => ipcRenderer.send("win:maximize-toggle"),
+  windowClose: () => ipcRenderer.send("win:close"),
+  windowIsMaximized: () => ipcRenderer.invoke("win:is-maximized"),
+  onWindowMaximizedChange: (handler) => {
+    ipcRenderer.on("win:maximized-changed", (_event, isMax) => handler(isMax));
+  },
+  showAbout: () => ipcRenderer.invoke("ui:about"),
+
   // Path utilities
   pathJoin: (...parts) => parts.join(/\\|\//.test(parts[0] || "") ? "\\" : "/"),
 });

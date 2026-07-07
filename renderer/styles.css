@@ -152,6 +152,82 @@ html, body {
   text-align: center;
 }
 .daoc-warning strong { color: var(--warn); margin-right: 8px; }
+/* Custom frameless title bar (native frame is disabled in main.js) */
+.titlebar {
+  display: flex;
+  align-items: stretch;
+  height: 34px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.titlebar-drag { flex: 1; }
+.titlebar-controls {
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: no-drag;
+}
+.titlebar-btn {
+  width: 46px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.titlebar-btn:hover { background: var(--panel-2); color: var(--text); }
+.titlebar-btn.win-close:hover { background: #e04a4a; color: #fff; }
+.win-menu-wrap { position: relative; display: flex; }
+.win-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 210px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  padding: 4px;
+  z-index: 300;
+}
+.win-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.win-menu-item:hover { background: var(--panel-2); border-color: transparent; }
+.win-menu-item .menu-accel { color: var(--text-muted); font-size: 11px; }
+.win-menu-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+
 .app {
   max-width: none;
   margin: 0 auto;
@@ -166,12 +242,6 @@ header {
   border-bottom: 1px solid var(--border);
   gap: 12px;
   flex-wrap: wrap;
-}
-header h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--accent);
 }
 .toolbar {
   display: flex;
