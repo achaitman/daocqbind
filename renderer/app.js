@@ -254,7 +254,6 @@ const $winMax = $("win-max");
 const $winClose = $("win-close");
 const $winMenuBtn = $("win-menu-btn");
 const $winMenu = $("win-menu");
-const $updateBtn = $("update-btn");
 
 // ============================================================
 // Init
@@ -269,7 +268,6 @@ async function init() {
   });
 
   initTitleBar();
-  initUpdaterUI();
 
   const initial = await window.api.getInitialState();
   state.defaultPath = initial.defaultPath;
@@ -352,12 +350,6 @@ function initTitleBar() {
   });
   $("menu-change-folder").addEventListener("click", () => { closeWinMenu(); pickFolder(); });
   $("menu-reload-folder").addEventListener("click", () => { closeWinMenu(); loadFolder(); });
-  $("menu-check-updates").addEventListener("click", () => {
-    closeWinMenu();
-    manualCheckRequested = true;
-    showToast("Checking for updates…");
-    window.api.checkForUpdates();
-  });
   $("menu-about").addEventListener("click", () => { closeWinMenu(); window.api.showAbout(); });
 
   // Close the menu on any outside click or Escape.
@@ -367,59 +359,6 @@ function initTitleBar() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeWinMenu();
   });
-}
-
-// ============================================================
-// Auto-update UI
-// The "Update" button in the title bar reflects state from the main
-// process. Installed builds download automatically and offer a restart;
-// portable/dev builds offer to open the download page.
-// ============================================================
-let manualCheckRequested = false;
-
-function handleUpdaterStatus(data) {
-  if (!data || !data.state) return;
-  switch (data.state) {
-    case "checking":
-      break;
-    case "downloading": {
-      const pct = typeof data.percent === "number" ? ` ${data.percent}%` : "…";
-      $updateBtn.hidden = false;
-      $updateBtn.disabled = true;
-      $updateBtn.textContent = `Downloading update${pct}`;
-      $updateBtn.title = "Downloading the latest version…";
-      break;
-    }
-    case "ready":
-      $updateBtn.hidden = false;
-      $updateBtn.disabled = false;
-      $updateBtn.textContent = "Restart & update";
-      $updateBtn.title = data.version ? `Install v${data.version} and restart` : "Install update and restart";
-      manualCheckRequested = false;
-      break;
-    case "available":
-      // Portable/dev can't self-install — this opens the download page.
-      $updateBtn.hidden = false;
-      $updateBtn.disabled = false;
-      $updateBtn.textContent = data.version ? `Update to v${data.version}` : "Update available";
-      $updateBtn.title = "Open the download page";
-      manualCheckRequested = false;
-      break;
-    case "none":
-      $updateBtn.hidden = true;
-      if (manualCheckRequested) showToast("You're on the latest version.");
-      manualCheckRequested = false;
-      break;
-    case "error":
-      if (manualCheckRequested) showToast("Update check failed: " + (data.message || "unknown error"), "error");
-      manualCheckRequested = false;
-      break;
-  }
-}
-
-function initUpdaterUI() {
-  window.api.onUpdaterStatus(handleUpdaterStatus);
-  $updateBtn.addEventListener("click", () => window.api.installUpdate());
 }
 
 function showEmptyState() {
